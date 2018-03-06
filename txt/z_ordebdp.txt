@@ -7,7 +7,6 @@ z_ordebdp01:--z_ordebdp01
 	declare @t_bno nvarchar(max) = case when '#non' = [3] then '' else [3] end
 	declare @t_eno nvarchar(max) = case when '#non' = [3] then '' else [3] end
 	-------------------------------------------------------------------------------------------------------------
-	
 	declare @tmp table(
 		sel int identity(1,1)
 		,gno nvarchar(10)
@@ -28,7 +27,7 @@ z_ordebdp01:--z_ordebdp01
 		,addr2 nvarchar(max)
 		,memo nvarchar(max)-- 備註
 		
-		,productno nvarchar(30) -- 材質
+		,spec nvarchar(30) -- 材質
 		,style nvarchar(30) -- 型
 		,class nvarchar(20) -- 等級
 		,product nvarchar(50)-- 品名
@@ -47,11 +46,11 @@ z_ordebdp01:--z_ordebdp01
 	)
 	insert into @tmp(gno,pno,ordeaccy,ordeno,ordeno2,odate,sales,trantype,paytype
 		,custno,cust,tel,fax,addr,addr2,memo
-		,productno,style,class,product,kind,dime,width,lengthb,radius,size
+		,spec,style,class,product,kind,dime,width,lengthb,radius,size
 		,mount,[weight],price,memos)
 	select '1',1,a.accy ordeaccy,a.noa ordeno,b.no2 ordeno2,a.odate,a.sales,a.trantype,a.paytype
 		,a.custno,a.comp cust,a.tel,a.fax,a.addr,a.addr2,isnull(a.memo,'')
-		,b.productno,b.style,b.class,b.product,b.kind,b.dime,b.width,b.lengthb,b.radius
+		,b.spec,b.style,b.class,b.product,b.kind,b.dime,b.width,b.lengthb,b.radius
 		,dbo.csize(b.kind,b.dime,b.width,b.lengthb,b.radius)
 		,b.mount,b.[weight],b.price,b.memo
 	from view_orde a
@@ -152,7 +151,7 @@ z_ordebdp01:--z_ordebdp01
 		,'交運方式：' + ISNULL(trantype,'')	a07			
 		,'付款方式：' + ISNULL(paytype,'')	a08			
 		
-		,product b01
+		,spec b01
 		,style b02
 		,[class] b03
 		,product b04
