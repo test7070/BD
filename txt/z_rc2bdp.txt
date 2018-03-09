@@ -1,0 +1,152 @@
+z_rc2bdp01:--z_rc2bdp01 
+	SET QUOTED_IDENTIFIER OFF 
+	declare @cmd nvarchar(max) 	
+	declare @t_path nvarchar(max) = '[1]'
+	declare @t_db nvarchar(max) = '[2]'
+	
+	declare @t_bno nvarchar(max) = case when '#non' = [3] then '' else [3] end
+	declare @t_eno nvarchar(max) = case when '#non' = [3] then '' else [3] end
+	----------------------------------------------------------------------------------------------
+	declare @tmp table(
+		sel int identity(1,1)
+		,gno nvarchar(10)
+		,pno int
+		,rc2accy nvarchar(10)
+		,rc2no nvarchar(20)
+		,rc2noq nvarchar(10)
+		,datea nvarchar(20)
+		,ordcno nvarchar(20)
+		
+		,cno nvarchar(20)
+		,tggno nvarchar(20)
+		,tgg nvarchar(50)
+		,tel nvarchar(max)
+		,trantype nvarchar(20)
+		,cardealno nvarchar(20)
+		,cardeal nvarchar(50)
+		,carno nvarchar(20)
+		,memo nvarchar(max)
+		
+		,[money] float
+		,tax float
+		,total float
+		
+		
+		,[source] nvarchar(20) -- 鋼廠
+		,uno nvarchar(30) -- 鋼捲編號
+		,spec nvarchar(30) -- 材質
+		,[class] nvarchar(30) -- 等級
+		,product nvarchar(30) -- 品名
+		,size nvarchar(50)-- 尺寸(厚*寬*長)
+		,kind nvarchar(20)
+		,dime float
+		,width float
+		,lengthb float
+		,radius float
+		,mount float-- 數量
+		,[weight] float-- 重量
+		,price float-- 單價
+		,[moneys] float-- 金額
+		,memos nvarchar(max)
+	)
+	insert into @tmp(gno,pno,rc2accy,rc2no,rc2noq,datea,ordcno,cno,tggno,tgg,tel
+		,trantype,cardealno,cardeal,carno,memo,[money],tax,total
+		,[source],uno,spec,[class],product
+		,size,kind,dime,width,lengthb,radius,mount,[weight],price,[moneys]
+		,memos)
+	select '1',1,a.accy rc2accy,a.noa rc2no,b.noq rc2noq,a.datea,a.ordcno,a.cno,a.tggno,a.comp,a.tel
+		,a.trantype,a.cardealno,a.cardeal,a.carno,a.memo,a.[money],a.tax,a.total
+		,b.[source],b.uno,b.spec,b.[class],b.product
+		,dbo.csize(b.kind,b.dime,b.width,b.lengthb,b.radius) size
+		,b.kind,b.dime,b.width,b.lengthb,b.radius,b.mount,b.[weight],b.price,b.[total] [money]
+		,b.memo
+	from view_rc2 a
+	left join view_rc2s b on a.accy=b.accy and a.noa=b.noa
+	where a.noa between @t_bno and @t_eno
+	
+	--------------------------------------------------------------------------------------------
+	declare @pageCount int = 12 
+	
+	declare @accy nvarchar(10)
+	declare @noa nvarchar(20)
+	declare @memo nvarchar(max)
+	declare @addr nvarchar(max)
+	declare @addr2 nvarchar(max)
+	declare @n int
+	declare @mount float
+	declare @weight float
+	declare @money float
+	
+	declare @memo01 nvarchar(max),@memo02 nvarchar(max),@memo03 nvarchar(max)
+	
+	declare cursor_table cursor for
+		select rc2accy,rc2no,memo,count(1)
+		,sum(isnull(mount,0)) ,sum(isnull([weight],0)) ,sum(isnull([moneys],0)) 
+		from @tmp 
+		group by rc2accy,rc2no,memo
+	open cursor_table
+	fetch next from cursor_table
+	into @accy,@noa,@memo,@n,@mount,@weight,@money
+	while(@@FETCH_STATUS <> -1)
+	begin		
+		insert into @tmp(gno,pno,rc2accy,rc2no,mount,[weight],moneys)
+		select '3',3,@accy,@noa,@mount,@weight,@money
+		insert into @tmp(gno,pno,rc2accy,rc2no,tax)
+		select top 1 '4',4,@accy,@noa,tax
+		from @tmp 
+		where rc2accy=@accy and rc2no=@noa and pno=1
+		insert into @tmp(gno,pno,rc2accy,rc2no,memo,total)
+		select top 1 '5',5,@accy,@noa,memo,total
+		from @tmp 
+		where rc2accy=@accy and rc2no=@noa and pno=1
+		insert into @tmp(gno,pno,rc2accy,rc2no)
+		select '6',6,@accy,@noa
+		insert into @tmp(gno,pno,rc2accy,rc2no)
+		select '7',7,@accy,@noa
+		
+		set @n = @n + 5
+		------------------------------------------------------------------------------
+		---- 空白行
+		while @n%@pageCount !=0
+		begin
+			insert into @tmp(gno,pno,rc2accy,rc2no
+				,tgg,tel,trantype,datea,ordcno,cardeal,carno)
+			select top 1 '2',2,rc2accy,rc2no
+				,tgg,tel,trantype,datea,ordcno,cardeal,carno
+			from @tmp 
+			where rc2accy=@accy and rc2no=@noa and pno=1
+			
+			set @n=@n+1	
+		end
+		
+		fetch next from cursor_table
+		into @accy,@noa,@memo,@n,@mount,@weight,@money
+	end
+	close cursor_table
+	deallocate cursor_table
+	----------------------------------------------------------------------------------------------------
+	select gno 
+		,N'廠商名稱：' + isnull(tgg,'') a01
+		,N'電話傳真：' + ISNULL(tel,'') a02
+		,N'車行：'+ ISNULL(cardeal,'') a03
+		,N'車號：'+ ISNULL(carno,'') a04
+		,N'交運方式：' + ISNULL(trantype,'') a05
+		,N'單據編號：' + ISNULL(rc2no,'') a06
+		,N'驗收日期：' + ISNULL(datea,'') a07
+		,N'採購單號：' + ISNULL(ordcno,'') a08
+		,[source] b01
+		,uno b02
+		,spec b03
+		,[class] b04
+		,product b05
+		,size b06
+		,dbo.getComma(mount,-1) b07
+		,dbo.getComma([weight],-1) b08
+		,dbo.getComma(price,-1) b09
+		,dbo.getComma(moneys,-1) b10
+		
+		,dbo.getComma(tax,-1) c01
+		,dbo.getComma(total,-1) c02
+		,N'備　　註：'+isnull(memo,'') c03
+	from @tmp
+	order by rc2accy,rc2no,pno,sel;
