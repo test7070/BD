@@ -58,7 +58,7 @@ z_rc2bdp01:--z_rc2bdp01
 		,a.trantype,a.cardealno,a.cardeal,a.carno,a.memo,a.[money],a.tax,a.total
 		,b.[source],b.uno,b.spec,b.[class],b.product
 		,dbo.csize(b.kind,b.dime,b.width,b.lengthb,b.radius) size
-		,b.kind,b.dime,b.width,b.lengthb,b.radius,b.mount,b.[weight],b.price,b.[total] [money]
+		,a.kind,b.dime,b.width,b.lengthb,b.radius,b.mount,b.[weight],b.price,b.[total] [money]
 		,b.memo
 	from view_rc2 a
 	left join view_rc2s b on a.accy=b.accy and a.noa=b.noa
