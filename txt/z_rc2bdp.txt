@@ -5,7 +5,7 @@ z_rc2bdp01:--z_rc2bdp01
 	declare @t_db nvarchar(max) = '[2]'
 	
 	declare @t_bno nvarchar(max) = case when '#non' = [3] then '' else [3] end
-	declare @t_eno nvarchar(max) = case when '#non' = [3] then '' else [3] end
+	declare @t_eno nvarchar(max) = case when '#non' = [4] then '' else [4] end
 	----------------------------------------------------------------------------------------------
 	declare @tmp table(
 		sel int identity(1,1)
@@ -110,9 +110,9 @@ z_rc2bdp01:--z_rc2bdp01
 		while @n%@pageCount !=0
 		begin
 			insert into @tmp(gno,pno,rc2accy,rc2no
-				,tgg,tel,trantype,datea,ordcno,cardeal,carno)
+				,tgg,tel,trantype,datea,ordcno,cardeal,carno,kind)
 			select top 1 '2',2,rc2accy,rc2no
-				,tgg,tel,trantype,datea,ordcno,cardeal,carno
+				,tgg,tel,trantype,datea,ordcno,cardeal,carno,kind
 			from @tmp 
 			where rc2accy=@accy and rc2no=@noa and pno=1
 			
@@ -126,6 +126,7 @@ z_rc2bdp01:--z_rc2bdp01
 	deallocate cursor_table
 	----------------------------------------------------------------------------------------------------
 	select gno 
+		,case when kind='加工' then '加工進貨單' else '進貨單' end a00
 		,N'廠商名稱：' + isnull(tgg,'') a01
 		,N'電話傳真：' + ISNULL(tel,'') a02
 		,N'車行：'+ ISNULL(cardeal,'') a03
@@ -149,4 +150,5 @@ z_rc2bdp01:--z_rc2bdp01
 		,dbo.getComma(total,-1) c02
 		,N'備　　註：'+isnull(memo,'') c03
 	from @tmp
+	order by rc2accy,rc2no,pno,sel;
 	order by rc2accy,rc2no,pno,sel;
