@@ -1,0 +1,84 @@
+SET QUOTED_IDENTIFIER ON
+GO
+
+
+ALTER  function [dbo].[getSprice_bd](@t_uno nvarchar(max))
+returns @tmp table(
+	uno nvarchar(30)
+	,price float  -- 單價
+	,tprice float -- 加工單價
+	,wprice float -- 運費單價
+) as
+begin
+	if len(ltrim(rtrim(@t_uno))) = 0
+	begin
+		insert into @tmp(uno,price,tprice,wprice)
+		select @t_uno,0,0,0
+		return
+	end
+
+	declare @cmd nvarchar(max)
+	declare @sprice float = 0
+	---------------------------------------------------------------------------------------
+	declare @tablea nvarchar(30) = ''
+	declare @accy nvarchar(10) = ''
+	declare @noa nvarchar(20) = ''
+	declare @noq nvarchar(10) = ''
+
+	declare @price float,@tprice float,@wprice float
+
+	
+	if len(@tablea)=0
+		select @tablea='rc2s',@accy=accy,@noa=noa,@noq=noq from view_rc2s where uno=@t_uno
+	if len(@tablea)=0
+		select @tablea='inas',@accy=accy,@noa=noa,@noq=noq from view_inas where uno=@t_uno
+	if len(@tablea)=0
+		select @tablea='cuts',@accy=accy,@noa=noa,@noq=noq from view_cuts where bno=@t_uno
+
+	if upper(@tablea) = 'RC2S'
+	begin
+		select @price=0,@tprice=0
+		select @price=isnull(a.price,0),@tprice=isnull(b.price,0)
+		from view_rc2s a
+		left join view_rc2 b on a.accy=b.accy and a.noa=b.noa
+		where a.accy=@accy and a.noa=@noa and a.noq=@noq
+
+		insert into @tmp(uno,price,tprice,wprice)
+		select @t_uno,@price,@tprice,0
+	end
+	else if upper(@tablea) = 'INAS'
+	begin
+		select @price=0,@tprice=0
+		select @price=isnull(a.price,0),@tprice=isnull(b.price,0)
+		from view_inas a
+		left join view_ina b on a.accy=b.accy and a.noa=b.noa
+		where a.accy=@accy and a.noa=@noa and a.noq=@noq
+
+		insert into @tmp(uno,price,tprice,wprice)
+		select @t_uno,@price,@tprice,0
+	end
+	else if upper(@tablea) = 'CUTS'
+	begin
+		declare @tmpuno nvarchar(max) = ''
+		select @tmpuno = a.uno 
+		from view_cut a 
+		where a.accy = @accy and a.noa = @noa 
+
+		select @price=0,@tprice=0,@wprice=0
+		select @price=price,@tprice=tprice,@wprice=wprice from dbo.getSprice_bd(@tmpuno)
+		set @price = isnull(@price,0) + isnull(@tprice,0) + isnull(@wprice,0)
+		select @tprice=0,@wprice=0
+		
+		select @wprice= isnull(a.wprice,0) ,@tprice = isnull(b.price,0)
+		from view_cuts a
+		left join view_cut b on a.accy=b.accy and a.noa=b.noa 
+		where a.accy=@accy and a.noa=@noa and a.noq=@noq
+
+		insert into @tmp(uno,price,tprice,wprice)
+		select @t_uno,@price,@tprice,@wprice
+	end
+	return
+end
+GO
+
+
