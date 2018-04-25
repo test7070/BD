@@ -134,7 +134,7 @@ z_cngbdp01:--z_cngbdp01
 		,size b07--尺寸(厚*寬*長)			
 		,dbo.getComma(mount,-1) b08--數量		
 		,dbo.getComma([weight],-1) b09--重量		
-		,memo b10--備註
+		,memos b10--備註
 		,'車行：'+left(cardeal+'　　　　　　　　',4)
 			+'車號：'+left(carno+'　　　　　　　　　　',8)
 			+'運輸方式：'+trantype c01
