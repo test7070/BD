@@ -1,0 +1,144 @@
+z_cngbdp01:--z_cngbdp01
+	SET QUOTED_IDENTIFIER OFF 
+	declare @cmd nvarchar(max) 	
+	declare @t_path nvarchar(max) = '[1]'
+	declare @t_db nvarchar(max) = '[2]'
+	declare @t_bno nvarchar(max) = case when '#non' = [3] then '' else [3] end
+	declare @t_eno nvarchar(max) = case when '#non' = [4] then '' else [4] end
+	----------------------------------------------------------------------------------------------
+	declare @tmpa table(
+		sel int identity(1,1)
+		,gno nvarchar(20)
+		,pno int
+		,recno int
+		,pp int -- 頁數
+		,qq int -- 總頁數
+		,accy nvarchar(10)
+		,noa nvarchar(20)
+		,noq nvarchar(10)
+		,datea nvarchar(20)
+		,[source] nvarchar(20) --鋼廠
+		,uno nvarchar(30) -- 鋼捲編號
+		,spec nvarchar(20) -- 材質
+		,[class] nvarchar(20) -- 級
+		,productno nvarchar(20) -- 品號
+		,product nvarchar(50) -- 品名
+		,dime float
+		,width float
+		,lengthb float
+		,radius float
+		,size nvarchar(max)
+		,mount float
+		,[weight] float
+		,memos nvarchar(max)
+		
+		,storeno_out nvarchar(20) --調出倉
+		,store_out nvarchar(20)
+		,storeno_in nvarchar(20) --調入倉
+		,store_in nvarchar(20)
+		,cardealno nvarchar(20)--車行
+		,cardeal nvarchar(50)
+		,carno nvarchar(max)--車號
+		,trantype nvarchar(max)--運輸方式
+		,memo nvarchar(max)--表頭備註
+		,tot_mount float
+		,tot_weight float
+	)
+	insert into @tmpa(gno,pno,accy,noa,noq,datea,[source],uno,spec,[class],productno,product
+		,dime,width,lengthb,radius,size,mount,[weight],memos
+		,storeno_out,store_out,storeno_in,store_in,cardealno,cardeal,carno,trantype,memo)
+	select '1' gno,1 pno,a.accy,a.noa,a.noq,a.datea,'' [source],a.uno,'' spec,'' [class],'' productno,'' product
+		,0 dime,0 width,0 lengthb,0 radius,'' size,a.mount,a.[weight],a.memo memos
+		,b.storeno storeno_out,b.store store_out
+		,b.storeinno storeno_in,b.storein store_in
+		,isnull(b.cardealno,''),isnull(b.cardeal,''),isnull(b.carno,'')
+		,isnull(b.trantype,''),isnull(b.memo,'')
+	from view_cngs a
+	left join view_cng b on a.accy=b.accy and a.noa=b.noa
+	where a.noa between @t_bno and @t_eno
+
+	update @tmpa set [source]=b.[source],spec=b.spec,[class]=b.[class],productno=b.productno,product=b.product
+		,dime=b.dime,width=b.width,lengthb=b.lengthb,radius=b.radius,size=b.size
+	from @tmpa a
+	left join view_uccb b on a.uno=b.uno 
+	where b.uno is not null
+
+	update @tmpa set size= cast(dime as nvarchar)+'X'+cast(width as nvarchar)+'X'+case when isnull(lengthb,0)=0 then 'C' else cast(lengthb as nvarchar) end
+	where len(isnull(size,''))=0
+	and not(dime=0 and width=0 and lengthb=0)
+	
+	insert into @tmpa(gno,pno,accy,noa,mount,[weight],cardealno,cardeal,carno,trantype,memo)
+	select '3' gno,3 pno,accy,noa,sum(isnull(mount,0)),sum(isnull([weight],0))
+		,cardealno,cardeal,carno,trantype,memo
+	from @tmpa 
+	where pno = 1
+	group by accy,noa,cardealno,cardeal,carno,trantype,memo
+
+	insert into @tmpa(gno,pno,accy,noa,mount,[weight],cardealno,cardeal,carno,trantype,memo)
+	select '4' gno,4 pno,accy,noa,mount,[weight],cardealno,cardeal,carno,trantype,memo
+	from @tmpa where pno=3
+
+	insert into @tmpa(gno,pno,accy,noa,mount,[weight],cardealno,cardeal,carno,trantype,memo)
+	select '5' gno,5 pno,accy,noa,mount,[weight],cardealno,cardeal,carno,trantype,memo
+	from @tmpa where pno=3
+	------------------------------------------------------------------------------------------
+	-- 空白行
+	declare @t_pageCount int = 10 -- 一頁有幾筆明細
+	declare @accy nvarchar(10)
+	declare @noa nvarchar(20)
+	declare @n int
+
+	declare cursor_table cursor for
+	select accy,noa,count(1) from @tmpa group by accy,noa
+	open cursor_table
+	fetch next from cursor_table
+	into @accy,@noa,@n
+	while(@@FETCH_STATUS <> -1)
+	begin		
+		while @n%@t_pageCount != 0 
+		begin
+			insert into @tmpa(gno,pno,accy,noa)
+			select '2',2,@accy,@noa
+
+			set @n = @n + 1
+		end
+
+		fetch next from cursor_table
+		into @accy,@noa,@n
+	end
+	close cursor_table
+	deallocate cursor_table
+
+	update @tmpa set recno = b.recno
+	from @tmpa a
+	left join (select sel,ROW_NUMBER()over(partition by accy,noa order by pno,sel) recno from @tmpa) b on a.sel=b.sel
+	--頁碼
+	update @tmpa set pp = floor((recno-1)/@t_pageCount) + 1
+	from @tmpa a
+
+	update @tmpa set qq = b.pp
+	from @tmpa a
+	left join(select accy,noa,max(pp) pp from @tmpa group by accy,noa) b on b.accy=a.accy and b.noa=a.noa
+
+	select gno
+		,'調出倉庫：' + storeno_out + '　' + store_out a01
+		,'調入倉庫：' + storeno_in + '　' + store_in a02
+		,'調撥編號：' + noa a03
+		,'調撥日期：' + datea + '　　頁數：' + cast(pp as nvarchar) a04
+		,storeno_out b01--倉庫		
+		,[source] b02--鋼廠		
+		,uno b03--鋼捲編號		
+		,spec b04--材質		
+		,[class] b05--級		
+		,product b06--品名		
+		,size b07--尺寸(厚*寬*長)			
+		,dbo.getComma(mount,-1) b08--數量		
+		,dbo.getComma([weight],-1) b09--重量		
+		,memo b10--備註
+		,'車行：'+right('　　　　　　　　'+cardeal,4)
+			+'車號：'+right('　　　　　　　　　　'+carno,8)
+			+'運輸方式：'+trantype c01
+		,'備註：' + memo c02
+		,'主管：_________ 銷管：_________ 倉管：_________ 警衛：_________ 承運司機：_________ 客戶簽收：_________' c03
+	from @tmpa
+	order by accy,noa,pno,recno;
