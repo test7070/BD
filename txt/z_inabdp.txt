@@ -1,0 +1,133 @@
+z_inabdp01:--z_inabdp01
+	SET QUOTED_IDENTIFIER OFF 
+	declare @cmd nvarchar(max) 	
+	declare @t_path nvarchar(max) = '[1]'
+	declare @t_db nvarchar(max) = '[2]'	
+	declare @t_itype nvarchar(max) = '[3]'	
+	declare @t_bno nvarchar(max) = case when '#non' = [4] then '' else [4] end
+	declare @t_eno nvarchar(max) = case when '#non' = [5] then '' else [5] end
+	-----------------------------------------------------------------------------------------------------
+	declare @tmpa table(
+		sel int identity(1,1)
+		,gno nvarchar(10)
+		,pno int
+		,recno int
+		,pp int
+		,qq int
+		,accy nvarchar(10)
+		,noa nvarchar(20)
+		,noq nvarchar(10)
+		,tggno nvarchar(20)
+		,tgg nvarchar(50)
+		,custno nvarchar(20)
+		,cust nvarchar(20)
+		,itype nvarchar(20)
+		,citype nvarchar(20)
+		,datea nvarchar(20)
+		,[source] nvarchar(20)--鋼廠		
+		,uno nvarchar(30)--鋼捲編號		
+		,spec nvarchar(20)--材質		
+		,class nvarchar(20)--等級		
+		,product nvarchar(50)--品名		
+		,dime float
+		,width float
+		,lengthb float
+		,radius float
+		,size nvarchar(max)--尺寸(厚*寬*長)			
+		,unit nvarchar(20)--單位		
+		,mount float--數量		
+		,[weight] float--重量		
+		,memos nvarchar(max)--備註
+
+		,memo nvarchar(max)
+	)
+	insert into @tmpa(gno,pno,accy,noa,noq
+		,tggno,tgg,custno,cust,itype,datea
+		,[source],uno,spec,[class],product
+		,dime,width,lengthb,radius,size,unit
+		,mount,[weight],memos,memo)
+	select '1',1,a.accy,a.noa,b.noq
+		,a.tggno,a.comp,a.custno,a.cust,a.itype,a.datea
+		,b.[source],b.uno,b.spec,b.[class],b.product
+		,b.dime,b.width,b.lengthb,b.radius,b.size,b.unit
+		,b.mount,b.[weight],b.memo,a.memo
+	from view_ina a
+	left join view_inas b on a.accy=b.accy and a.noa=b.noa
+	where a.noa between @t_bno and @t_eno 
+	
+	update @tmpa set citype=b.item
+	from @tmpa a
+	left join dbo.fnSplit(@t_itype) b on a.itype=b.n
+
+	insert into @tmpa(gno,pno,accy,noa,memo,mount,[weight])
+	select '3' gno,3 pno,accy,noa,memo,sum(isnull(mount,0)),sum(isnull([weight],0))
+	from @tmpa 
+	where pno=1
+	group by accy,noa,memo
+
+	insert into @tmpa(gno,pno,accy,noa,memo,mount,[weight])
+	select '4' gno,4 pno,accy,noa,memo,mount,[weight]
+	from @tmpa
+	where pno=3
+
+	insert into @tmpa(gno,pno,accy,noa,memo,mount,[weight])
+	select '5' gno,5 pno,accy,noa,memo,mount,[weight]
+	from @tmpa
+	where pno=3
+	------------------------------------------------------------------------------------------
+	-- 空白行
+	declare @t_pageCount int = 12 -- 一頁有幾筆明細
+	declare @accy nvarchar(10)
+	declare @noa nvarchar(20)
+	declare @n int
+
+	declare cursor_table cursor for
+	select accy,noa,count(1) from @tmpa group by accy,noa
+	open cursor_table
+	fetch next from cursor_table
+	into @accy,@noa,@n
+	while(@@FETCH_STATUS <> -1)
+	begin		
+		while @n%@t_pageCount != 0 
+		begin
+			insert into @tmpa(gno,pno,accy,noa)
+			select '2',2,@accy,@noa
+
+			set @n = @n + 1
+		end
+
+		fetch next from cursor_table
+		into @accy,@noa,@n
+	end
+	close cursor_table
+	deallocate cursor_table
+
+	update @tmpa set recno = b.recno
+	from @tmpa a
+	left join (select sel,ROW_NUMBER()over(partition by accy,noa order by pno,sel) recno from @tmpa) b on a.sel=b.sel
+	--頁碼
+	update @tmpa set pp = floor((recno-1)/@t_pageCount) + 1
+	from @tmpa a
+
+	update @tmpa set qq = b.pp
+	from @tmpa a
+	left join(select accy,noa,max(pp) pp from @tmpa group by accy,noa) b on b.accy=a.accy and b.noa=a.noa
+
+	select gno
+		,'單據編號：' + noa a01
+		,'公司行號：' + tggno + ' ' + tgg a02
+		,'人 庫 別：' + citype a03
+		,'入庫日期：' + datea a04
+		,[source] b01--鋼廠		
+		,uno b02--鋼捲編號		
+		,spec b03--材質		
+		,[class] b04--等級		
+		,product b05--品名		
+		,size b06--尺寸(厚*寬*長)			
+		,unit b07--單位		
+		,mount b08--數量		
+		,[weight] b09--重量		
+		,memo b10--備註
+		,'品檢意見：' c01
+		,'說明事項：'+memo c02
+	from @tmpa order by accy,noa,recno;

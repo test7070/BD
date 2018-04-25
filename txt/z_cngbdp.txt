@@ -83,7 +83,7 @@ z_cngbdp01:--z_cngbdp01
 	from @tmpa where pno=3
 	------------------------------------------------------------------------------------------
 	-- 空白行
-	declare @t_pageCount int = 10 -- 一頁有幾筆明細
+	declare @t_pageCount int = 12 -- 一頁有幾筆明細
 	declare @accy nvarchar(10)
 	declare @noa nvarchar(20)
 	declare @n int
