@@ -135,8 +135,8 @@ z_cngbdp01:--z_cngbdp01
 		,dbo.getComma(mount,-1) b08--數量		
 		,dbo.getComma([weight],-1) b09--重量		
 		,memo b10--備註
-		,'車行：'+right('　　　　　　　　'+cardeal,4)
-			+'車號：'+right('　　　　　　　　　　'+carno,8)
+		,'車行：'+left(cardeal+'　　　　　　　　',4)
+			+'車號：'+left(carno+'　　　　　　　　　　',8)
 			+'運輸方式：'+trantype c01
 		,'備註：' + memo c02
 		,'主管：_________ 銷管：_________ 倉管：_________ 警衛：_________ 承運司機：_________ 客戶簽收：_________' c03
