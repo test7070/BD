@@ -1,0 +1,8 @@
+z_vccbdp01:--z_vccbdp01
+	SET QUOTED_IDENTIFIER OFF 
+	declare @cmd nvarchar(max) 	
+	declare @t_path nvarchar(max) = '[1]'
+	declare @t_db nvarchar(max) = '[2]'
+	declare @t_bno nvarchar(max) = case when '#non' = [3] then '' else [3] end
+	declare @t_eno nvarchar(max) = case when '#non' = [4] then '' else [4] end
+	----------------------------------------------------------------------------------------------

@@ -1,0 +1,148 @@
+z_getbdp01:--z_getbdp01
+	SET QUOTED_IDENTIFIER OFF 
+	declare @cmd nvarchar(max) 	
+	declare @t_path nvarchar(max) = '[1]'
+	declare @t_db nvarchar(max) = '[2]'
+	declare @t_bno nvarchar(max) = case when '#non' = [3] then '' else [3] end
+	declare @t_eno nvarchar(max) = case when '#non' = [4] then '' else [4] end
+	----------------------------------------------------------------------------------------------
+	declare @tmpa table(
+		sel int identity(1,1)
+		,gno nvarchar(20)
+		,pno int
+		,recno int
+		,pp int
+		,qq int
+		,accy nvarchar(10)
+		,noa nvarchar(20)
+		,noq nvarchar(10)
+		,custno nvarchar(20)
+		,cust nvarchar(max)
+		,tel nvarchar(max)
+		,fax nvarchar(max)
+		,[address] nvarchar(max)
+		,datea nvarchar(20)
+		,typea nvarchar(20)
+		,ordeno nvarchar(max)
+		,trantype nvarchar(20)
+
+		,uno nvarchar(30)
+		,spec nvarchar(20)
+		,[class] nvarchar(30)
+		,productno nvarchar(30)
+		,product nvarchar(max)
+		,dime float
+		,width float
+		,lengthb float
+		,radius float
+		,size nvarchar(max)
+		,mount float
+		,[weight] float
+		,memo nvarchar(max)
+		,cardealno nvarchar(20)
+		,cardeal nvarchar(50)
+		,carno nvarchar(20)
+	)
+	insert into @tmpa(gno,pno,accy,noa,noq,custno,cust,tel,fax,[address]
+		,a.datea,typea,ordeno,trantype
+		,uno,spec,[class],productno,product,dime,width,lengthb,radius,mount,[weight],memo
+		,cardealno,cardeal,carno)
+	select '1' gno,1 pno,a.accy,a.noa,b.noq,a.custno,a.comp cust,'' tel,'' fax,isnull(a.addr,'') [address]
+		,a.datea,a.typea,'' ordeno,a.trantype
+		,b.uno,b.spec,b.[class],b.productno,b.product,b.dime,b.width,b.lengthb,b.radius,b.mount,b.[weight],b.memo
+		,a.cardealno,a.cardeal,a.carno
+	from view_get a
+	left join view_gets b on a.accy=b.accy and a.noa=b.noa
+	where a.noa between @t_bno and @t_eno
+	------------------------------------------------------------------------------------------------------------------
+	update @tmpa set tel=b.tel,fax=b.fax
+	from @tmpa a
+	left join cust b on a.noa=b.noa 
+	where b.noa is not null
+
+	insert into @tmpa(gno,pno,accy,noa,cardealno,cardeal,carno,mount,[weight])
+	select '3' gno,3 pno,accy,noa,cardealno,cardeal,carno,sum(isnull(mount,0)),sum(isnull([weight],0))
+	from @tmpa  
+	where pno = 1
+	group by accy,noa,cardealno,cardeal,carno
+
+	insert into @tmpa(gno,pno,accy,noa,cardealno,cardeal,carno,mount,[weight])
+	select '4' gno,4 pno,accy,noa,cardealno,cardeal,carno,mount,[weight]
+	from @tmpa  
+	where pno = 3
+
+	insert into @tmpa(gno,pno,accy,noa,cardealno,cardeal,carno,mount,[weight])
+	select '5' gno,5 pno,accy,noa,cardealno,cardeal,carno,mount,[weight]
+	from @tmpa  
+	where pno = 3
+
+	insert into @tmpa(gno,pno,accy,noa,cardealno,cardeal,carno,mount,[weight])
+	select '6' gno,6 pno,accy,noa,cardealno,cardeal,carno,mount,[weight]
+	from @tmpa  
+	where pno = 3
+
+	insert into @tmpa(gno,pno,accy,noa,cardealno,cardeal,carno,mount,[weight])
+	select '7' gno,7 pno,accy,noa,cardealno,cardeal,carno,mount,[weight]
+	from @tmpa  
+	where pno = 3
+	------------------------------------------------------------------------------------------
+	-- 空白行
+	declare @t_pageCount int = 12 -- 一頁有幾筆明細
+	declare @accy nvarchar(10)
+	declare @noa nvarchar(20)
+	declare @n int
+
+	declare cursor_table cursor for
+	select accy,noa,count(1) from @tmpa group by accy,noa
+	open cursor_table
+	fetch next from cursor_table
+	into @accy,@noa,@n
+	while(@@FETCH_STATUS <> -1)
+	begin		
+		while @n%@t_pageCount != 0 
+		begin
+			insert into @tmpa(gno,pno,accy,noa)
+			select '2',2,@accy,@noa
+
+			set @n = @n + 1
+		end
+
+		fetch next from cursor_table
+		into @accy,@noa,@n
+	end
+	close cursor_table
+	deallocate cursor_table
+
+	update @tmpa set recno = b.recno
+	from @tmpa a
+	left join (select sel,ROW_NUMBER()over(partition by accy,noa order by pno,sel) recno from @tmpa) b on a.sel=b.sel
+	--頁碼
+	update @tmpa set pp = floor((recno-1)/@t_pageCount) + 1
+	from @tmpa a
+
+	update @tmpa set qq = b.pp
+	from @tmpa a
+	left join(select accy,noa,max(pp) pp from @tmpa group by accy,noa) b on b.accy=a.accy and b.noa=a.noa
+
+	select gno
+		,noa a01
+		,cust + ' ' + custno a02
+		,tel a03
+		,fax a04
+		,[address] a05
+		,datea a06
+		,typea a07
+		,ordeno a08
+		,trantype a09
+		,uno b01--鋼捲編號				
+		,spec b02--材質			
+		,class b03--等級		
+		,product b04--品名		
+		,size b05--規格(厚*寬*長)				
+		,dbo.getComma(mount,-1) b06--數量		
+		,dbo.getComma([weight],-1) b07--重量			
+		,memo b08--備註	
+		,cardeal c01
+		,carno c02
+	from @tmpa
+	order by accy,noa,recno;

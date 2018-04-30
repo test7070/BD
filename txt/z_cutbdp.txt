@@ -1,0 +1,129 @@
+z_cutbdp01:--z_cutbdp01
+	SET QUOTED_IDENTIFIER OFF 
+	declare @cmd nvarchar(max) 	
+	declare @t_path nvarchar(max) = '[1]'
+	declare @t_db nvarchar(max) = '[2]'
+	declare @t_bno nvarchar(max) = case when '#non' = [3] then '' else [3] end
+	declare @t_eno nvarchar(max) = case when '#non' = [4] then '' else [4] end
+	----------------------------------------------------------------------------------------------
+	declare @tmpa table(
+		sel int identity(1,1)
+		,gno nvarchar(20)
+		,pno int
+		,recno int
+		,pp int
+		,qq int
+		,accy nvarchar(10)
+		,noa nvarchar(20)
+		,noq nvarchar(10)
+		,uno nvarchar(30)
+		,productno nvarchar(20)
+		,product nvarchar(50)
+		,datea nvarchar(20)
+		,mechno nvarchar(20)
+		,mech nvarchar(20)
+		,w01 float --原重量
+		,w02 float --需求量
+
+		,custno nvarchar(20)
+		,cust nvarchar(50)
+		,size nvarchar(max)
+		,dime float
+		,width float
+		,lengthb float
+		,mount float
+		,theory float
+		,[weight] float
+		,bno nvarchar(30) -- 餘料編號
+		,memos nvarchar(max)
+		,memo nvarchar(max)
+		,worker nvarchar(max)
+		,worker2 nvarchar(max)
+	)
+	insert into @tmpa(gno,pno,accy,noa,noq,uno,productno,product,datea,mechno,mech,w01,w02
+		,custno,cust,size,dime,width,lengthb,mount,theory,[weight],bno,memos,memo,worker,worker2)
+	select '1' gno,1 pno,a.accy,a.noa,b.noq,a.uno,a.productno,a.product,a.datea,a.mechno,a.mech
+		,a.oweight w01,a.gweight w02
+		,b.custno,b.cust,b.size,b.dime,b.width,b.lengthb,b.mount,b.theory,b.[weight],b.bno,b.memo memos
+		,a.memo memo,a.worker,a.worker2
+	from view_cut a
+	left join view_cuts b on a.accy=b.accy and a.noa=b.noa
+	where a.noa between @t_bno and @t_eno
+
+	insert into @tmpa(gno,pno,accy,noa,memo,worker,worker2)
+	select '3' gno,3 pno,accy,noa,memo,worker,worker2
+	from @tmpa
+	where pno = 1
+
+	insert into @tmpa(gno,pno,accy,noa,memo,worker,worker2)
+	select '4' gno,4 pno,accy,noa,memo,worker,worker2
+	from @tmpa
+	where pno = 1
+
+	insert into @tmpa(gno,pno,accy,noa,memo,worker,worker2)
+	select '5' gno,5 pno,accy,noa,memo,worker,worker2
+	from @tmpa
+	where pno = 1
+	------------------------------------------------------------------------------------------------
+	-- 空白行
+	declare @t_pageCount int = 35 -- 一頁有幾筆明細
+	declare @accy nvarchar(10)
+	declare @noa nvarchar(20)
+	declare @n int
+
+	declare cursor_table cursor for
+	select accy,noa,count(1) from @tmpa group by accy,noa
+	open cursor_table
+	fetch next from cursor_table
+	into @accy,@noa,@n
+	while(@@FETCH_STATUS <> -1)
+	begin		
+		while @n%@t_pageCount != 0 
+		begin
+			insert into @tmpa(gno,pno,accy,noa)
+			select '2',2,@accy,@noa
+
+			set @n = @n + 1
+		end
+
+		fetch next from cursor_table
+		into @accy,@noa,@n
+	end
+	close cursor_table
+	deallocate cursor_table
+
+	update @tmpa set recno = b.recno
+	from @tmpa a
+	left join (select sel,ROW_NUMBER()over(partition by accy,noa order by pno,noq,sel) recno from @tmpa) b on a.sel=b.sel
+	--頁碼
+	update @tmpa set pp = floor((recno-1)/@t_pageCount) + 1
+	from @tmpa a
+
+	update @tmpa set qq = b.pp
+	from @tmpa a
+	left join(select accy,noa,max(pp) pp from @tmpa group by accy,noa) b on b.accy=a.accy and b.noa=a.noa
+	----------------------------------------------------------------------------------------------------------
+	select gno
+		,uno a01
+		,product a02
+		,noa a03
+		,datea a04
+		,dbo.getComma(w01,-1) a05
+		,mech a06
+		,dbo.getComma(w02,-1) a07
+		,cust b01--客戶		
+		,size b02--加工尺寸(厚*寬*長)		
+		,dbo.getComma(mount,-1) b03--數量		
+		,dbo.getComma(theory,-1) b04--理論重		
+		,dbo.getComma([weight],-1) b05--實際重		
+		,bno b06--餘料編號		
+		,memos b07--備註		
+		--厚度		
+		--寬度		
+		--長度		
+		--對角
+		,memo c01
+		,'' c02
+		,worker c03
+	from @tmpa
+	order by accy,noa,recno;
