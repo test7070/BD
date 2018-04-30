@@ -50,20 +50,26 @@ z_cutbdp01:--z_cutbdp01
 	left join view_cuts b on a.accy=b.accy and a.noa=b.noa
 	where a.noa between @t_bno and @t_eno
 
+	update @tmpa set cust = b.nick
+	from @tmpa a
+	left join cust b on a.custno=b.noa
+	where b.noa is not null and len(isnull(b.nick,''))>0
+
 	insert into @tmpa(gno,pno,accy,noa,memo,worker,worker2)
 	select '3' gno,3 pno,accy,noa,memo,worker,worker2
 	from @tmpa
 	where pno = 1
+	group by accy,noa,memo,worker,worker2
 
 	insert into @tmpa(gno,pno,accy,noa,memo,worker,worker2)
 	select '4' gno,4 pno,accy,noa,memo,worker,worker2
 	from @tmpa
-	where pno = 1
+	where pno = 3
 
 	insert into @tmpa(gno,pno,accy,noa,memo,worker,worker2)
 	select '5' gno,5 pno,accy,noa,memo,worker,worker2
 	from @tmpa
-	where pno = 1
+	where pno = 3
 	------------------------------------------------------------------------------------------------
 	-- 空白行
 	declare @t_pageCount int = 35 -- 一頁有幾筆明細
@@ -118,10 +124,10 @@ z_cutbdp01:--z_cutbdp01
 		,dbo.getComma([weight],-1) b05--實際重		
 		,bno b06--餘料編號		
 		,memos b07--備註		
-		--厚度		
-		--寬度		
-		--長度		
-		--對角
+		,'' b08--厚度		
+		,'' b09--寬度		
+		,'' b10--長度		
+		,'' b11--對角
 		,memo c01
 		,'' c02
 		,worker c03
