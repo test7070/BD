@@ -30,9 +30,25 @@
 						type : '0', //[2]
 						name : 'db',
 						value : q_db
-					},{//1  [3][4]
-                        type : '1',
+					}, {
+                        type : '1', //[3][4]   1
                         name : 'xnoa'
+                    }, {
+                        type : '5', //[5]  2
+                        name : 'xstype',
+                        value : [q_getPara('report.all')].concat(q_getPara('vccst.stype').split(','))
+                    }, {
+                        type : '5', //[6]  3
+                        name : 'showtype',
+                        value : '0@預設&1@尺寸&2@厚寬長'.split('&')
+                    }, {
+                        type : '8', //[7]   4
+                        name : 'xshowprice',
+                        value : "1@".split(',')
+                    }, {
+                        type : '8', //[8]   5
+                        name : 'xmerga', 
+                        value : "1@".split(',')
                     }]
                 });
                 q_popAssign();
