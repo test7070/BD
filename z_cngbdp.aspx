@@ -25,7 +25,7 @@
                     options : [{
 						type : '0', //[1]
 						name : 'path',
-						value : location.protocol + '//' +location.hostname + location.pathname.toLowerCase().replace('z_rc2bdp.aspx','')
+						value : location.protocol + '//' +location.hostname + location.pathname.toLowerCase().replace('z_cngbdp.aspx','')
 					},{
 						type : '0', //[2]
 						name : 'db',
